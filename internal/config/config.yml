@@ -1,0 +1,9 @@
+grpcSrv:
+  port: "50051"
+
+db:
+  host: "analytics-db"
+  port: "5432"
+  user: "postgres"
+  dbname: "analytics_db"
+  sslmode: "disable"
