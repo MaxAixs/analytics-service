@@ -1,0 +1,55 @@
+services:
+  analytics-db:
+    image: postgres:15
+    container_name: analytics-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: analytics_db
+    ports:
+      - "5440:5432"
+    volumes:
+      - analytics-db-data:/var/lib/postgresql/data
+    networks:
+      - my-shared-network
+
+  analytics-migrate:
+    image: migrate/migrate
+    container_name: analytics-migrate
+    command: -path /app/migrations -database "postgres://postgres:${DB_PASSWORD}@analytics-db:5432/analytics_db?sslmode=disable" up
+    volumes:
+      - ./migrations:/app/migrations
+    depends_on:
+      - analytics-db
+    networks:
+      - my-shared-network
+
+  analytics-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: analytics-service
+    restart: always
+    env_file:
+      - .env
+    environment:
+      DB_HOST: analytics-db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: analytics_db
+    ports:
+      - "50051:50051"
+    depends_on:
+      - analytics-db
+      - analytics-migrate
+    networks:
+      - my-shared-network
+
+volumes:
+  analytics-db-data:
+
+networks:
+  my-shared-network:
+    external: true
