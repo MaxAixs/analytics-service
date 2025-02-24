@@ -1,0 +1,8 @@
+CREATE TABLE TaskDoneItem (
+    id SERIAL PRIMARY KEY,
+    UserID UUID NOT NULL,
+    ItemID INT NOT NULL,
+    Email VARCHAR NOT NULL ,
+    CreatedAt TIMESTAMP NOT NULL DEFAULT NOW(),
+    Sent_notify BOOLEAN DEFAULT FALSE
+);
