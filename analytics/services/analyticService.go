@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/MaxAixs/protos/gen/api/gen/api"
-	"github.com/google/uuid"
 	"sync"
 )
 
@@ -26,7 +25,7 @@ func NewAnalyticService(save ItemsSaver, load ItemsLoader) *AnalyticService {
 	return &AnalyticService{itemsSaver: save, itemsLoader: load}
 }
 
-func (a *AnalyticService) SaveTaskData(ctx context.Context, items *api.TaskDoneItems) error {
+func (a *AnalyticService) SaveTaskData(ctx context.Context, items *api.TaskDoneItems) []error {
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(items.Items))
 
@@ -44,11 +43,21 @@ func (a *AnalyticService) SaveTaskData(ctx context.Context, items *api.TaskDoneI
 	wg.Wait()
 	close(errChan)
 
-	for err := range errChan {
-		return err
+	if len(errChan) > 0 {
+		errs := getErrFromChan(errChan)
+		return errs
 	}
 
 	return nil
+}
+
+func getErrFromChan(errChan chan error) []error {
+	var errs []error
+	for err := range errChan {
+		errs = append(errs, err)
+	}
+
+	return errs
 }
 
 func (a *AnalyticService) processSaveTaskData(ctx context.Context, task *api.TaskDoneItem) error {
@@ -58,20 +67,6 @@ func (a *AnalyticService) processSaveTaskData(ctx context.Context, task *api.Tas
 	}
 
 	return a.itemsSaver.SaveTask(ctx, taskModel)
-}
-
-func convertToTaskModel(task *api.TaskDoneItem) (analytics.TaskModel, error) {
-	userID, err := uuid.Parse(task.UserId)
-	if err != nil {
-		return analytics.TaskModel{}, fmt.Errorf("cant parsing to UUID : %v", err)
-	}
-
-	return analytics.TaskModel{
-		UserId:    userID,
-		Email:     task.Email,
-		ItemId:    int(task.ItemId),
-		CreatedAt: task.CreatedAt.AsTime(),
-	}, nil
 }
 
 func (a *AnalyticService) GetWeeklyList(ctx context.Context) (*api.WeeklyCompletedTasksResponse, error) {
@@ -86,20 +81,4 @@ func (a *AnalyticService) GetWeeklyList(ctx context.Context) (*api.WeeklyComplet
 	}
 
 	return grpcTasks, nil
-}
-
-func convertToGRPCModel(tasks []analytics.CompletedTaskModel) (*api.WeeklyCompletedTasksResponse, error) {
-	var grpcTasks []*api.CompletedTask
-
-	for _, task := range tasks {
-		grpcTasks = append(grpcTasks, &api.CompletedTask{
-			UserId: task.UserId.String(),
-			Email:  task.Email,
-			Count:  task.Count,
-		})
-	}
-
-	return &api.WeeklyCompletedTasksResponse{
-		Tasks: grpcTasks,
-	}, nil
 }
